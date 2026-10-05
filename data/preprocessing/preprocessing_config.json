@@ -92,8 +92,8 @@
   },
   "validation_test_augmentation": false,
   "split_sha256": {
-    "train": "5d4089ad71d74a51f2a83be21b675eb742bd09abc7809fbd3120cb6507985ff8",
-    "val": "752148f3daec466d5e08ae7c3981341bc4c3bd6884e12831bedd44eb62d29f10",
-    "test": "d49c9803c683c8224a3cb1276664f18945bb44a82964bb01ebb1667f6a5882b6"
+    "train": "deedac6754467e011822804058044a920f88894dd24f39c49d21dde9af017b2b",
+    "val": "50c59fbbe4fd9cbc9f826d0c87cef392b30456cf08a40eefe1457bbd5ba36cc4",
+    "test": "e395ab87a5229a9544458fe31bd44737091ac7003abf26b91e87b86e313fb12c"
   }
 }
