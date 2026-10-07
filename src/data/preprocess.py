@@ -11,30 +11,30 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+Root = Path(__file__).resolve().parents[2]
 
-ZIP_PATH = PROJECT_ROOT / "data/raw/dataset_cleaned.zip"
-METADATA_DIR = PROJECT_ROOT / "data/metadata"
-OUTPUT_DIR = PROJECT_ROOT / "data/preprocessing"
+Cleaned_archive = Root / "data/raw/dataset_cleaned.zip"
+Metadata_dir = Root / "data/metadata"
+Output_dir = Root / "data/preprocessing"
 
-IMAGE_SIZE = 224
-BATCH_SIZE = 32
-NUM_CLASSES = 53
+Image_size = 224
+Batch_size = 32
+Num_classes = 53
 
-SPLIT_NAMES = ("train", "val", "test")
-COLUMNS = ["member", "class_name", "class_id"]
+Split_names = ("train", "val", "test")
+Columns = ["member", "class_name", "class_id"]
 
-IMAGENET_MEAN = (0.485, 0.456, 0.406)
-IMAGENET_STD = (0.229, 0.224, 0.225)
+Imagenet_mean = (0.485, 0.456, 0.406)
+Imagenet_std = (0.229, 0.224, 0.225)
 
 
-def load_splits(metadata_dir=METADATA_DIR):
+def load_splits(metadata_dir=Metadata_dir):
     metadata_dir = Path(metadata_dir)
 
     return {
         split: pd.read_csv(
             metadata_dir / f"{split}.csv",
-            usecols=list(COLUMNS),
+            usecols=list(Columns),
             dtype={
                 "member": "string",
                 "class_name": "string",
@@ -42,7 +42,7 @@ def load_splits(metadata_dir=METADATA_DIR):
             },
             encoding="utf-8-sig"
         )
-        for split in SPLIT_NAMES
+        for split in Split_names
     }
 
 
@@ -70,13 +70,11 @@ def create_zip_index(zip_path, members):
     return {member: member for member in requested_members}
 
 
-def create_transform(model_type, training, image_size=IMAGE_SIZE):
+def create_transform(model_type, training, image_size=Image_size):
     if model_type not in ["scratch", "resnet18"]:
         raise ValueError("model_type must be either scratch or resnet18.")
 
-    steps = [
-        transforms.Resize((image_size, image_size))
-    ]
+    steps = [transforms.Resize((image_size, image_size))]
 
     if training:
         steps.extend([
@@ -90,9 +88,7 @@ def create_transform(model_type, training, image_size=IMAGE_SIZE):
     steps.append(transforms.ToTensor())
 
     if model_type == "resnet18":
-        steps.append(
-            transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
-        )
+        steps.append(transforms.Normalize(Imagenet_mean, Imagenet_std))
 
     return transforms.Compose(steps)
 
@@ -137,10 +133,10 @@ class CardDataset(Dataset):
 
 def build_loaders(
     model_type="scratch",
-    metadata_dir=METADATA_DIR,
-    zip_path=ZIP_PATH,
-    image_size=IMAGE_SIZE,
-    batch_size=BATCH_SIZE
+    metadata_dir=Metadata_dir,
+    zip_path=Cleaned_archive,
+    image_size=Image_size,
+    batch_size=Batch_size
 ):
     if image_size < 32 or batch_size < 1:
         raise ValueError("image_size >= 32 and batch_size >= 1.")
@@ -177,7 +173,7 @@ def build_loaders(
     return loaders
 
 
-def check_batches(loaders, model_type, image_size=IMAGE_SIZE):
+def check_batches(loaders, model_type, image_size=Image_size):
     for name, loader in loaders.items():
         batch = next(iter(loader))
         size = len(batch["member"])
@@ -190,7 +186,7 @@ def check_batches(loaders, model_type, image_size=IMAGE_SIZE):
 
         assert torch.isfinite(batch["image"]).all()
         assert batch["class_id"].ge(0).all()
-        assert batch["class_id"].lt(NUM_CLASSES).all()
+        assert batch["class_id"].lt(Num_classes).all()
 
         if model_type == "scratch":
             assert batch["image"].min() >= 0
@@ -217,8 +213,8 @@ def save_augmentation_preview(loader, model_type, output_path):
 
         if model_type == "resnet18":
             image = (
-                image * torch.tensor(IMAGENET_STD)
-                + torch.tensor(IMAGENET_MEAN)
+                image * torch.tensor(Imagenet_std)
+                + torch.tensor(Imagenet_mean)
             )
 
         axis.imshow(image.clamp(0, 1).numpy())
@@ -229,27 +225,27 @@ def save_augmentation_preview(loader, model_type, output_path):
     plt.close(figure)
 
 
-def save_config(output_dir):
+def save_config(Output_dir):
     label_map = json.loads(
-        (METADATA_DIR / "label_map.json").read_text(encoding="utf-8")
+        (Metadata_dir / "label_map.json").read_text(encoding="utf-8")
     )
 
-    assert len(label_map) == NUM_CLASSES, (
-        f"label_map has {len(label_map)} classes, expected {NUM_CLASSES}."
+    assert len(label_map) == Num_classes, (
+        f"label_map has {len(label_map)} classes, expected {Num_classes}."
     )
 
     config = {
-        "image_size": [IMAGE_SIZE, IMAGE_SIZE],
+        "image_size": [Image_size, Image_size],
         "color": "RGB",
-        "batch_size": BATCH_SIZE,
+        "batch_size": Batch_size,
         "target": "class_id",
-        "num_classes": NUM_CLASSES,
+        "num_classes": Num_classes,
         "label_map": label_map,
         "scratch": {"pixel_range": [0, 1]},
         "resnet18": {
             "pixel_range_before_normalize": [0, 1],
-            "mean": IMAGENET_MEAN,
-            "std": IMAGENET_STD
+            "mean": Imagenet_mean,
+            "std": Imagenet_std 
         },
         "train_augmentation": {
             "rotation_degrees": 10,
@@ -260,13 +256,13 @@ def save_config(output_dir):
         "validation_test_augmentation": False,
         "split_sha256": {
             name: hashlib.sha256(
-                (METADATA_DIR / f"{name}.csv").read_bytes()
+                (Metadata_dir / f"{name}.csv").read_bytes()
             ).hexdigest()
-            for name in SPLIT_NAMES
+            for name in Split_names
         }
     }
 
-    path = output_dir / "preprocessing_config.json"
+    path = Output_dir / "preprocessing_config.json"
     path.write_text(
         json.dumps(config, indent=2),
         encoding="utf-8"
@@ -274,8 +270,8 @@ def save_config(output_dir):
 
 
 def main():
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    save_config(OUTPUT_DIR)
+    Output_dir.mkdir(parents=True, exist_ok=True)
+    save_config(Output_dir)
 
     for model_type in ["scratch", "resnet18"]:
         loaders = build_loaders(model_type=model_type)
@@ -286,14 +282,14 @@ def main():
             save_augmentation_preview(
                 loaders["train"],
                 model_type,
-                OUTPUT_DIR / f"augmentation_{model_type}.png"
+                Output_dir / f"augmentation_{model_type}.png"
             )
         finally:
             for loader in loaders.values():
                 loader.dataset.close()
 
     print("Preprocessing completed.")
-    print("Output:", OUTPUT_DIR)
+    print("Output:", Output_dir)
 
 
 if __name__ == "__main__":
