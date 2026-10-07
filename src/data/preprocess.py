@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-ZIP_PATH = PROJECT_ROOT / "data/raw/dataset.zip"
+ZIP_PATH = PROJECT_ROOT / "data/raw/dataset_cleaned.zip"
 METADATA_DIR = PROJECT_ROOT / "data/metadata"
 OUTPUT_DIR = PROJECT_ROOT / "data/preprocessing"
 
