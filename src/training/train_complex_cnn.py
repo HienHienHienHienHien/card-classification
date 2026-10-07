@@ -1,51 +1,113 @@
 import json
+import sys
 from pathlib import Path
 import torch
 import torch.nn as nn
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from src.data.preprocess import build_loaders, METADATA_DIR, NUM_CLASSES
 from src.models.complex_cnn import build_complex_cnn
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT))
+
 OUTPUT_DIR = PROJECT_ROOT / "outputs" / "checkpoints"
 
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-EPOCHS = 100
+EPOCHS = 50
 LEARNING_RATE = 3e-4
-WEIGHT_DECAY = 1e-4
+EARLY_STOPPING_PATIENCE = 8
 
 
-def run_epoch(model, loader, criterion, device, optimizer=None):
-    training = optimizer is not None
-    model.train() if training else model.eval()
+def calculate_metrics(all_targets, all_preds):
+    labels = list(range(NUM_CLASSES))
 
+    return {
+        "accuracy": accuracy_score(all_targets, all_preds),
+        "precision": precision_score(
+            all_targets, all_preds,
+            labels=labels,
+            average="macro",
+            zero_division=0
+        ),
+        "recall": recall_score(
+            all_targets, all_preds,
+            labels=labels,
+            average="macro",
+            zero_division=0
+        ),
+        "f1": f1_score(
+            all_targets, all_preds,
+            labels=labels,
+            average="macro",
+            zero_division=0
+        ),
+    }
+
+
+def evaluate(model, loader, criterion, device):
+    model.eval()
     total_loss = 0.0
-    correct = 0
     total = 0
+    all_targets = []
+    all_preds = []
 
-    with torch.set_grad_enabled(training):
+    with torch.no_grad():
         for batch in loader:
             images = batch["image"].to(device)
             targets = batch["class_id"].to(device)
 
-            if training:
-                optimizer.zero_grad()
-
             outputs = model(images)
             loss = criterion(outputs, targets)
-
-            if training:
-                loss.backward()
-                optimizer.step()
+            preds = outputs.argmax(dim=1)
 
             total_loss += loss.item() * targets.size(0)
-            correct += (outputs.argmax(dim=1) == targets).sum().item()
             total += targets.size(0)
+            all_targets.extend(targets.cpu().tolist())
+            all_preds.extend(preds.cpu().tolist())
 
-    return total_loss / total, correct / total
+    metrics = calculate_metrics(all_targets, all_preds)
+    return total_loss / total, metrics
+
+
+def train_epoch(model, loader, criterion, optimizer, device):
+    model.train()
+    total_loss = 0.0
+    total = 0
+    all_targets = []
+    all_preds = []
+
+    for batch in loader:
+        images = batch["image"].to(device)
+        targets = batch["class_id"].to(device)
+
+        optimizer.zero_grad()
+        outputs = model(images)
+        loss = criterion(outputs, targets)
+        loss.backward()
+        optimizer.step()
+
+        preds = outputs.argmax(dim=1)
+
+        total_loss += loss.item() * targets.size(0)
+        total += targets.size(0)
+        all_targets.extend(targets.detach().cpu().tolist())
+        all_preds.extend(preds.detach().cpu().tolist())
+
+    metrics = calculate_metrics(all_targets, all_preds)
+    return total_loss / total, metrics
+
+
+def print_metrics(name, loss, metrics):
+    print(
+        f"{name} | Loss: {loss:.4f} | "
+        f"Accuracy: {metrics['accuracy']:.4f} | "
+        f"Precision: {metrics['precision']:.4f} | "
+        f"Recall: {metrics['recall']:.4f} | "
+        f"F1: {metrics['f1']:.4f}"
+    )
 
 
 def main():
@@ -56,19 +118,20 @@ def main():
     checkpoint_path = OUTPUT_DIR / "complex_cnn.pt"
 
     label_map_file = METADATA_DIR / "label_map.json"
-    with open(label_map_file, "r", encoding="utf-8") as file:
-        label_map = json.load(file)
+    with open(label_map_file, "r", encoding="utf-8") as f:
+        label_map = json.load(f)
 
     class_names = [
         name for name, _ in sorted(label_map.items(), key=lambda item: item[1])
     ]
-    with open(OUTPUT_DIR / "complex_class_names.json", "w", encoding="utf-8") as file:
-        json.dump(class_names, file, ensure_ascii=False, indent=2)
+
+    with open(OUTPUT_DIR / "complex_class_names.json", "w", encoding="utf-8") as f:
+        json.dump(class_names, f, ensure_ascii=False, indent=2)
 
     loaders = build_loaders(
         model_type="scratch",
         batch_size=BATCH_SIZE,
-        image_size=IMAGE_SIZE,
+        image_size=IMAGE_SIZE
     )
 
     train_loader = loaders["train"]
@@ -76,64 +139,87 @@ def main():
     test_loader = loaders["test"]
 
     model = build_complex_cnn(num_classes=NUM_CLASSES).to(device)
-    criterion = nn.CrossEntropyLoss()
 
+    criterion = nn.CrossEntropyLoss()
     optimizer = AdamW(
         model.parameters(),
         lr=LEARNING_RATE,
-        weight_decay=WEIGHT_DECAY,
+        weight_decay=1e-4
     )
+
     scheduler = ReduceLROnPlateau(
         optimizer,
         mode="min",
         factor=0.5,
         patience=3,
-        min_lr=1e-6,
+        min_lr=1e-6
     )
 
-    best_val_acc = 0.0
-    patience = 10
+    best_val_acc = float("-inf")
     patience_counter = 0
+    history = []
+    best_epoch = 0
 
     try:
         for epoch in range(1, EPOCHS + 1):
-            train_loss, train_acc = run_epoch(
-                model, train_loader, criterion, device, optimizer
+            train_loss, train_metrics = train_epoch(
+                model, train_loader, criterion, optimizer, device
             )
-            val_loss, val_acc = run_epoch(
+            val_loss, val_metrics = evaluate(
                 model, val_loader, criterion, device
             )
 
+            history.append({
+                "epoch": epoch,
+                "learning_rate": optimizer.param_groups[0]["lr"],
+                "train": {"loss": train_loss, **train_metrics},
+                "validation": {"loss": val_loss, **val_metrics},
+            })
             scheduler.step(val_loss)
-            current_lr = optimizer.param_groups[0]["lr"]
 
-            print(
-                f"Epoch [{epoch:02d}/{EPOCHS:02d}] "
-                f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f} | "
-                f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f} | "
-                f"LR: {current_lr:.6f}"
-            )
+            print(f"\nEpoch [{epoch:02d}/{EPOCHS:02d}]")
+            print_metrics("Train", train_loss, train_metrics)
+            print_metrics("Val  ", val_loss, val_metrics)
+            print(f"Learning rate: {optimizer.param_groups[0]['lr']:.6f}")
 
-            if val_acc > best_val_acc:
-                best_val_acc = val_acc
+            if val_metrics["accuracy"] > best_val_acc:
+                best_val_acc = val_metrics["accuracy"]
+                best_epoch = epoch
                 patience_counter = 0
                 torch.save(model.state_dict(), checkpoint_path)
             else:
                 patience_counter += 1
 
-            if patience_counter >= patience:
+            if patience_counter >= EARLY_STOPPING_PATIENCE:
                 print(f"Early stopping at epoch {epoch}.")
                 break
 
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-        test_loss, test_acc = run_epoch(
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
+
+        test_loss, test_metrics = evaluate(
             model, test_loader, criterion, device
         )
 
-        print("-" * 50)
-        print(f"Best Val Accuracy: {best_val_acc:.4f}")
-        print(f"Test Loss: {test_loss:.4f} | Test Accuracy: {test_acc:.4f}")
-        print(f"Best model saved to: {checkpoint_path}")
+        results = {
+            "model": "complex_cnn",
+            "batch_size": BATCH_SIZE,
+            "image_size": IMAGE_SIZE,
+            "max_epochs": EPOCHS,
+            "learning_rate": LEARNING_RATE,
+            "early_stopping_patience": EARLY_STOPPING_PATIENCE,
+            "parameters": sum(p.numel() for p in model.parameters()),
+            "best_epoch": best_epoch,
+            "best_validation_accuracy": best_val_acc,
+            "test": {"loss": test_loss, **test_metrics},
+            "history": history,
+        }
+        (OUTPUT_DIR / "complex_metrics.json").write_text(
+            json.dumps(results, indent=2), encoding="utf-8"
+        )
+
+        print("\n" + "-" * 50)
+        print_metrics("Test", test_loss, test_metrics)
+        print(f"Best model weights saved to: {checkpoint_path}")
 
     finally:
         for loader in loaders.values():

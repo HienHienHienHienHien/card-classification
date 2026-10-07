@@ -40,6 +40,8 @@ class ResidualBlock(nn.Module):
 
 
 class ComplexCNN(nn.Module):
+    """Residual CNN trained from scratch; returns one logit per card class."""
+
     def __init__(self, num_classes=53):
         super().__init__()
 
@@ -47,6 +49,8 @@ class ComplexCNN(nn.Module):
             nn.Conv2d(3, 32, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
+            # Reduce activation memory before the eight residual blocks.
+            nn.MaxPool2d(2),
         )
 
         self.stage1 = nn.Sequential(
