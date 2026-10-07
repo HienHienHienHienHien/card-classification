@@ -4,19 +4,24 @@ import re
 import zipfile
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
+
+import numpy as np
 import pandas as pd
 from PIL import Image
 from sklearn.model_selection import train_test_split
 
 
+# Config
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 RAW_ARCHIVE = PROJECT_ROOT / "data" / "raw" / "dataset.zip"
+CLEANED_ARCHIVE = PROJECT_ROOT / "data" / "raw" / "dataset_cleaned.zip"
 METADATA_DIR = PROJECT_ROOT / "data" / "metadata"
 
 IMAGE_SIZE = (224, 224)
 EXPECTED_CLASSES = 53
 RANDOM_STATE = 42
+NEAR_DUPLICATE_THRESHOLD = 8
 
 TRAIN_RATIO = 0.70
 VAL_RATIO = 0.15
@@ -28,14 +33,23 @@ METADATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def get_class_name(member):
-    """'dataset/dataset/ace of clubs 01.jpg' -> 'ace of clubs'."""
+    # ace of clubs 01.jpg -> ace of clubs
     match = re.match(r"^(.+?)\s+\d+$", PurePosixPath(member).stem)
     if match is None:
         return None
     return " ".join(match.group(1).lower().split())
 
 
+def get_dhash(image):
+    image = image.convert("L")
+    resampling = getattr(Image, "Resampling", Image).LANCZOS
+    image = image.resize((17, 16), resampling)
+    pixels = np.asarray(image)
+    return (pixels[:, 1:] > pixels[:, :-1]).flatten()
+
+
 def inspect_dataset():
+    # Read and inspect all images in the ZIP file.
     if not RAW_ARCHIVE.is_file():
         raise FileNotFoundError(f"Dataset archive was not found: {RAW_ARCHIVE}")
 
@@ -62,6 +76,7 @@ def inspect_dataset():
                     image.load()
                     width, height = image.size
                     channels = len(image.getbands())
+                    image_dhash = get_dhash(image)
             except (OSError, ValueError, Image.DecompressionBombError):
                 skipped.append((member, "not a readable image"))
                 continue
@@ -74,6 +89,7 @@ def inspect_dataset():
                     "width": width,
                     "height": height,
                     "channels": channels,
+                    "dhash": image_dhash,
                 }
             )
 
@@ -98,7 +114,67 @@ def inspect_dataset():
     return metadata
 
 
+def remove_near_duplicates(metadata):
+    hashes = np.stack(metadata["dhash"].to_numpy())
+    parent = list(range(len(metadata)))
+
+    def find(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(first, second):
+        first = find(first)
+        second = find(second)
+
+        if first != second:
+            parent[second] = first
+
+    for start in range(0, len(metadata), 32):
+        current_hashes = hashes[start:start + 32]
+        distances = np.count_nonzero(
+            current_hashes[:, None, :] != hashes[None, :, :],
+            axis=2
+        )
+
+        for row, column in np.argwhere(
+            distances <= NEAR_DUPLICATE_THRESHOLD
+        ):
+            first = start + int(row)
+            second = int(column)
+
+            if second > first:
+                union(first, second)
+
+    groups = {}
+
+    for index in range(len(metadata)):
+        root = find(index)
+        groups.setdefault(root, []).append(index)
+
+    remove_indexes = []
+    group_count = 0
+
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+
+        group_count += 1
+        group_classes = set(metadata.iloc[group]["class_name"])
+
+        # If the same near-duplicate group has different labels,
+        # remove the whole group instead of keeping a wrong label.
+        if len(group_classes) > 1:
+            remove_indexes.extend(group)
+        else:
+            remove_indexes.extend(group[1:])
+
+    return remove_indexes, group_count
+
+
 def clean_metadata(metadata):
+    # Remove exact duplicate images before splitting the data.
     before = len(metadata)
 
     labels_per_image = metadata.groupby("sha256")["class_name"].transform("nunique")
@@ -107,6 +183,12 @@ def clean_metadata(metadata):
 
     clean = clean.drop_duplicates("sha256").copy()
     duplicates_removed = before - len(conflicts) - len(clean)
+
+    near_duplicate_indexes, near_duplicate_groups = remove_near_duplicates(
+        clean.reset_index(drop=True)
+    )
+    clean = clean.reset_index(drop=True)
+    clean = clean.drop(index=near_duplicate_indexes).copy()
 
     class_names = sorted(clean["class_name"].unique())
     class_to_id = {name: i for i, name in enumerate(class_names)}
@@ -121,6 +203,8 @@ def clean_metadata(metadata):
     print(f"Before cleaning   : {before:,}")
     print(f"After cleaning    : {len(clean):,}")
     print(f"Duplicate removed : {duplicates_removed:,}")
+    print(f"Near duplicates   : {len(near_duplicate_indexes):,}")
+    print(f"Near-dup groups   : {near_duplicate_groups:,}")
     print(f"Conflict files    : {len(conflicts):,}")
     print(f"Number of classes : {len(class_names):,} (expected {EXPECTED_CLASSES})")
 
@@ -130,7 +214,37 @@ def clean_metadata(metadata):
     return clean
 
 
+def create_cleaned_archive(metadata, clean_metadata_frame):
+    # Create a new ZIP file and keep the original file unchanged.
+    keep_members = set(clean_metadata_frame["member"])
+    image_members = set(metadata["member"])
+    removed_images = 0
+
+    CLEANED_ARCHIVE.parent.mkdir(parents=True, exist_ok=True)
+
+    with zipfile.ZipFile(RAW_ARCHIVE, "r") as source, zipfile.ZipFile(
+        CLEANED_ARCHIVE, "w", zipfile.ZIP_DEFLATED
+    ) as target:
+        for info in source.infolist():
+            member = info.filename
+
+            if member in image_members and member not in keep_members:
+                removed_images += 1
+                continue
+
+            target.writestr(info, source.read(member))
+
+    print("\n" + "=" * 60)
+    print("CLEANED ARCHIVE")
+    print("=" * 60)
+    print(f"Images removed   : {removed_images:,}")
+    print(f"Cleaned archive  : {CLEANED_ARCHIVE}")
+
+    return CLEANED_ARCHIVE
+
+
 def create_splits(metadata):
+    # Split the clean data into train, validation and test sets.
     if metadata["class_id"].value_counts().min() < 7:
         raise ValueError("Every class needs at least 7 images to split 70/15/15.")
 
@@ -170,6 +284,7 @@ def create_splits(metadata):
 
 
 def main():
+    # Run the complete data preparation process.
     print("=" * 60)
     print("CARD CLASSIFICATION DATA PREPARATION")
     print("=" * 60)
@@ -180,8 +295,11 @@ def main():
     if metadata.empty:
         raise RuntimeError("No valid card images were found.")
 
-    create_splits(clean_metadata(metadata))
+    clean = clean_metadata(metadata)
+    create_cleaned_archive(metadata, clean)
+    create_splits(clean)
     print(f"\nSaved metadata to: {METADATA_DIR}")
+    print(f"Use this archive for training: {CLEANED_ARCHIVE}")
 
 
 if __name__ == "__main__":
