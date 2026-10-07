@@ -1,11 +1,9 @@
 import json
 from pathlib import Path
-
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
 from src.data.preprocess import build_loaders, METADATA_DIR, NUM_CLASSES
 from src.models.complex_cnn import build_complex_cnn
 
@@ -15,7 +13,7 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "checkpoints"
 
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-EPOCHS = 30
+EPOCHS = 100
 LEARNING_RATE = 3e-4
 WEIGHT_DECAY = 1e-4
 
