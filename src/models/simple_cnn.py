@@ -22,9 +22,10 @@ class SimpleCNN(nn.Module):
 
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(128 * 4 * 4, 128),
+            nn.Linear(128 * 4 * 4, 64),
             nn.ReLU(inplace=True),
-            nn.Linear(128, num_classes),
+            nn.Dropout(0.3),
+            nn.Linear(64, num_classes),
         )
 
     def forward(self, x):
