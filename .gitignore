@@ -3,3 +3,9 @@ data/preprocessing/*.png
 data/preprocessing/preprocessing_config.json
 __pycache__/
 *.pyc
+# Python cache
+__pycache__/
+*.pyc
+
+# Model outputs
+outputs/checkpoints/
