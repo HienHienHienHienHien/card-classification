@@ -1,0 +1,5 @@
+data/metadata/*.csv
+data/preprocessing/*.png
+data/preprocessing/preprocessing_config.json
+__pycache__/
+*.pyc
