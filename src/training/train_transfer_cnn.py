@@ -20,10 +20,10 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "checkpoints"
 
 
 BATCH_SIZE = 32
-IMAGE_SIZE = 224          # lớn hơn 224 để giữ chi tiết nhỏ (chỉ số, ký hiệu chất)
+IMAGE_SIZE = 224          
 EPOCHS_HEAD = 5           # pha 1: đóng băng backbone, chỉ train head
-EPOCHS_FINE = 30          # pha 2: fine-tune toàn mạng
-PATIENCE = 8              # early stopping ở pha 2
+EPOCHS_FINE = 50          # pha 2: fine-tune toàn mạng
+EARLY_STOPPING_PATIENCE = 8              # early stopping ở pha 2
 LABEL_SMOOTHING = 0.1
 
 
@@ -186,7 +186,7 @@ def main():
         )
         scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS_FINE, eta_min=1e-6)
         fit(EPOCHS_FINE, optimizer, tag="fine", freeze_bn=False,
-            scheduler=scheduler, patience=PATIENCE)
+            scheduler=scheduler, patience=EARLY_STOPPING_PATIENCE)
 
 
         # Đánh giá trên tập test bằng model tốt nhất (theo val acc)
