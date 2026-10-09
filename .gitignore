@@ -9,3 +9,5 @@ __pycache__/
 
 # Model outputs
 outputs/checkpoints/
+
+outputs/checkpoints/complex_class_names.json
