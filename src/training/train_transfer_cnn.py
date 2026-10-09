@@ -102,10 +102,9 @@ def main():
         json.dump(class_names, file, ensure_ascii=False, indent=2)
 
 
-    # model_type="resnet18" giữ nguyên như bản cũ (chuẩn hoá ImageNet).
-    # Nếu preprocess.py có model_type riêng cho transfer learning thì đổi ở đây.
+    # EfficientNet-B0 dùng chuẩn hoá ImageNet trong preprocess.py.
     loaders = build_loaders(
-        model_type="resnet18",
+        model_type="efficientnetb0",
         batch_size=BATCH_SIZE,
         image_size=IMAGE_SIZE,
     )

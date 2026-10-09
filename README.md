@@ -5,17 +5,17 @@
 Place the original dataset at `data/raw/dataset.zip`, with images arranged as
 `dataset/<class name> <image number>.jpg` (for example `dataset/ace of clubs 01.jpg`).
 
-Run dataset inspection from the project root:
+Run dataset preparation from the project root:
 
-```powershell
-python src/data/inspect.py
+```bash
+python src/data/inspect_data.py
 ```
 
-Requires Pillow (`pip install Pillow`). Paths are defined in `configs/config.py`
-and resolved relative to the project, independent of the working directory.
-The script reads the ZIP directly and writes `clean_metadata.csv`, `train.csv`,
-`val.csv`, and `test.csv` into `data/metadata`. The `member` column refers to a
-path inside `dataset.zip`, not an extracted file on disk. Class IDs are shared
+Requires NumPy, pandas, Pillow, and scikit-learn. The script reads
+`data/raw/dataset.zip` directly and writes `clean_metadata.csv`, `train.csv`,
+`val.csv`, `test.csv`, `label_map.json`, and `data/raw/dataset_cleaned.zip`.
+The paths are resolved relative to the project root. The `member` column refers
+to a path inside the ZIP, not an extracted file on disk. Class IDs are shared
 across splits and assigned in alphabetical order.
 
 Inspection checks readable images and all 53 classes, removes exact byte
