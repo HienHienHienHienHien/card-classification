@@ -23,7 +23,6 @@ Num_classes = 53
 
 Split_names = ("train", "val", "test")
 Columns = ["member", "class_name", "class_id"]
-ImageNet_model_types = ("efficientnetb0",)
 
 Imagenet_mean = (0.485, 0.456, 0.406)
 Imagenet_std = (0.229, 0.224, 0.225)
@@ -72,10 +71,8 @@ def create_zip_index(zip_path, members):
 
 
 def create_transform(model_type, training, image_size=Image_size):
-    if model_type != "scratch" and model_type not in ImageNet_model_types:
-        raise ValueError(
-            "model_type must be scratch or efficientnetb0."
-        )
+    if model_type not in ["scratch", "efficientnetb0"]:
+        raise ValueError("model_type must be either scratch or efficientnetb0.")
 
     steps = [transforms.Resize((image_size, image_size))]
 
@@ -90,7 +87,7 @@ def create_transform(model_type, training, image_size=Image_size):
 
     steps.append(transforms.ToTensor())
 
-    if model_type in ImageNet_model_types:
+    if model_type == "efficientnetb0":
         steps.append(transforms.Normalize(Imagenet_mean, Imagenet_std))
 
     return transforms.Compose(steps)
@@ -214,7 +211,7 @@ def save_augmentation_preview(loader, model_type, output_path):
     for axis in axes:
         image = dataset[0]["image"].permute(1, 2, 0)
 
-        if model_type in ImageNet_model_types:
+        if model_type == "efficientnetb0":
             image = (
                 image * torch.tensor(Imagenet_std)
                 + torch.tensor(Imagenet_mean)
@@ -248,7 +245,7 @@ def save_config(Output_dir):
         "efficientnetb0": {
             "pixel_range_before_normalize": [0, 1],
             "mean": Imagenet_mean,
-            "std": Imagenet_std
+            "std": Imagenet_std 
         },
         "train_augmentation": {
             "rotation_degrees": 10,
@@ -276,7 +273,7 @@ def main():
     Output_dir.mkdir(parents=True, exist_ok=True)
     save_config(Output_dir)
 
-    for model_type in ["scratch", *ImageNet_model_types]:
+    for model_type in ["scratch", "efficientnetb0"]:
         loaders = build_loaders(model_type=model_type)
 
         try:
