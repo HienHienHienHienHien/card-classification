@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from sklearn.metrics import classification_report, confusion_matrix
 
 
-from src.data.preprocess import build_loaders, METADATA_DIR, NUM_CLASSES
+from src.data.preprocess import build_loaders, Metadata_dir, Num_classes
 from src.models.transfer_cnn import build_transfer_cnn
 
 
@@ -90,7 +90,7 @@ def main():
     checkpoint_path = OUTPUT_DIR / "transfer_cnn.pt"
 
 
-    label_map_file = METADATA_DIR / "label_map.json"
+    label_map_file = Metadata_dir / "label_map.json"
     with open(label_map_file, "r", encoding="utf-8") as file:
         label_map = json.load(file)
 
@@ -114,7 +114,7 @@ def main():
     test_loader = loaders["test"]
 
 
-    model = build_transfer_cnn(num_classes=NUM_CLASSES, pretrained=True).to(device)
+    model = build_transfer_cnn(num_classes=Num_classes, pretrained=True).to(device)
 
 
     criterion_train = nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
@@ -212,7 +212,7 @@ def main():
                 y_true += batch["class_id"].tolist()
 
 
-        labels = list(range(NUM_CLASSES))
+        labels = list(range(Num_classes))
         print(classification_report(
             y_true, y_pred, labels=labels,
             target_names=class_names, digits=4, zero_division=0,
@@ -221,11 +221,11 @@ def main():
 
         # Các cặp lớp bị nhầm nhiều nhất
         cm = confusion_matrix(y_true, y_pred, labels=labels)
-        for i in range(NUM_CLASSES):
+        for i in range(Num_classes):
             cm[i, i] = 0
         print("Các cặp bị nhầm nhiều nhất (thật -> dự đoán):")
         for idx in cm.flatten().argsort()[::-1][:10]:
-            t, p = divmod(idx, NUM_CLASSES)
+            t, p = divmod(idx, Num_classes)
             if cm[t, p] > 0:
                 print(f"  {class_names[t]} -> {class_names[p]}: {cm[t, p]}")
 
