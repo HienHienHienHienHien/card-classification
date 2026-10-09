@@ -19,7 +19,7 @@ BATCH_SIZE = 32
 IMAGE_SIZE = 224
 EPOCHS = 100
 LEARNING_RATE = 3e-4
-EARLY_STOPPING_PATIENCE = 8
+EARLY_STOPPING_PATIENCE = 5
 
 
 def evaluate(model, loader, criterion, device):
@@ -203,12 +203,12 @@ def main():
 
         print("\n" + "-" * 50)
         print("Final Test Results")
+        print(f"Best Val Accuracy: {best_val_acc:.4f}")
         print(f"Loss      : {test_loss:.4f}")
         print(f"Accuracy  : {test_acc:.4f}")
         print(f"Precision : {precision:.4f}")
         print(f"Recall    : {recall:.4f}")
         print(f"F1-score  : {f1:.4f}")
-        print(f"Best Val Accuracy: {best_val_acc:.4f}")
 
     finally:
         for loader in loaders.values():
