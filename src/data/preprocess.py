@@ -10,9 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 import matplotlib.pyplot as plt
 
-
 Root = Path(__file__).resolve().parents[2]
-
 Cleaned_archive = Root / "data/raw/dataset_cleaned.zip"
 Metadata_dir = Root / "data/metadata"
 Output_dir = Root / "data/preprocessing"
@@ -33,7 +31,7 @@ def load_splits(metadata_dir=Metadata_dir):
 
     return {split: pd.read_csv(metadata_dir / f"{split}.csv",
             usecols=list(Columns),
-            dtype={ "member": "string",
+            dtype={"member": "string",
                    "class_name": "string",
                    "class_id": "int64"},
             encoding="utf-8-sig")
@@ -47,12 +45,10 @@ def create_zip_index(zip_path, members):
         raise FileNotFoundError(f"Card ZIP not found: {zip_path}")
 
     requested_members = {str(member).strip().replace("\\", "/") for member in members}
-
     with ZipFile(zip_path) as archive:
         zip_members = set(archive.namelist())
 
     missing = requested_members - zip_members
-
     if missing:
         raise FileNotFoundError(f"ZIP is missing {len(missing)} images. Example: {sorted(missing)[:3]}")
 
@@ -64,13 +60,10 @@ def create_transform(model_type, training, image_size=Image_size):
         raise ValueError("model_type must be either scratch or efficientnetb0.")
 
     steps = [transforms.Resize((image_size, image_size))]
-
     if training:
         steps.extend([transforms.RandomRotation(degrees=10),
                       transforms.ColorJitter(brightness=0.1,contrast=0.1)])
-
     steps.append(transforms.ToTensor())
-
     if model_type == "efficientnetb0":
         steps.append(transforms.Normalize(Imagenet_mean, Imagenet_std))
 
@@ -93,7 +86,6 @@ class CardDataset(Dataset):
 
         if self.archive is None:
             self.archive = ZipFile(self.zip_path)
-
         content = self.archive.read(self.index[row["member"]])
 
         with Image.open(BytesIO(content)) as image:
@@ -189,7 +181,6 @@ def save_augmentation_preview(loader, model_type, output_path):
 
 def save_config(Output_dir):
     label_map = json.loads((Metadata_dir / "label_map.json").read_text(encoding="utf-8"))
-
     assert len(label_map) == Num_classes, (f"label_map has {len(label_map)} classes, expected {Num_classes}.")
 
     config = {"image_size": [Image_size, Image_size],
@@ -211,8 +202,7 @@ def save_config(Output_dir):
                                for name in Split_names}}
 
     path = Output_dir / "preprocessing_config.json"
-    path.write_text(json.dumps(config, indent=2), 
-                    encoding="utf-8")
+    path.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
 
 def main():
@@ -231,7 +221,6 @@ def main():
             for loader in loaders.values():
                 loader.dataset.close()
 
-    print("Preprocessing completed.")
     print("Output:", Output_dir)
 
 

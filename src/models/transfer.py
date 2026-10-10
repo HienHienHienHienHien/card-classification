@@ -4,7 +4,7 @@ from torchvision import models
 
 class TransferCNN(nn.Module):
     """EfficientNet-B0 pretrained model"""
-    def __init__(self, num_classes=53, pretrained=True, dropout=0.3):
+    def __init__(self, num_classes=53, pretrained=True, dropout=0.4):
         super().__init__()
 
         weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1 if pretrained else None
@@ -23,11 +23,9 @@ class TransferCNN(nn.Module):
         for param in self.features.parameters():
             param.requires_grad = False
 
-
     def unfreeze_backbone(self):
         for param in self.features.parameters():
             param.requires_grad = True
-
 
     def forward(self, x):
         x = self.features(x)

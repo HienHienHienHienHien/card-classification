@@ -1,28 +1,127 @@
-# card-classification
+# 🃏 53-Class Playing Card Classification
 
-53-class playing card classification (52 standard cards and a joker).
+A deep learning project for classifying 53 playing card categories (52 standard cards and a joker), featuring a comparative performance evaluation between **Simple CNN**, **Complex CNN (ResNet-based)**, and **Transfer Learning (EfficientNet-B0)**.
 
-Place the original dataset at `data/raw/dataset.zip`, with images arranged as
-`dataset/<class name> <image number>.jpg` (for example `dataset/ace of clubs 01.jpg`).
+🔗 **Repository:** [GitHub - card-classification](https://github.com/HienHienHienHienHien/card-classification.git)
 
-Run dataset preparation from the project root:
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/HienHienHienHienHien/card-classification.git
+cd card-classification
+```
+
+### 2. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## 📂 Project Structure
+
+```text
+card-classification/
+├── configs/                  # Configuration files and hyperparameters
+├── data/
+│   ├── raw/                  # Original and cleaned ZIP datasets
+│   ├── metadata/             # CSV splits (train/val/test) & label mappings
+│   └── preprocessing/        # Configs and augmentation previews
+├── notebooks/
+│   └── EDA.ipynb             # Exploratory Data Analysis & Dataset insights
+├── outputs/                  # Training checkpoints (.pt) and loss/accuracy curves
+├── src/
+│   ├── data/                 # Dataset inspection, cleaning, and dataloaders
+│   ├── models/               # Model architectures (Simple CNN, Complex CNN, Transfer)
+│   └── training/             # Training scripts for each model type
+├── requirements.txt          # Python package dependencies
+└── README.md
+```
+
+---
+
+## 📊 Dataset Preparation & Cleaning
+
+The dataset consists of 53 classes. The preparation pipeline handles raw images directly inside a ZIP archive without requiring full manual disk extraction.
+
+### 1. Pull Dataset via Git LFS (if tracked)
+
+```bash
+apt-get install git-lfs
+git lfs install
+git lfs pull
+```
+
+### 2. Run Exploratory Data Analysis (EDA)
+
+Check `notebooks/EDA.ipynb` for dataset distributions and image sample previews.
+
+### 3. Run Inspection and Cleaning
 
 ```bash
 python src/data/inspect_data.py
 ```
 
-Requires NumPy, pandas, Pillow, and scikit-learn. The script reads
-`data/raw/dataset.zip` directly and writes `clean_metadata.csv`, `train.csv`,
-`val.csv`, `test.csv`, `label_map.json`, and `data/raw/dataset_cleaned.zip`.
-The paths are resolved relative to the project root. The `member` column refers
-to a path inside the ZIP, not an extracted file on disk. Class IDs are shared
-across splits and assigned in alphabetical order.
+### 4. Run Preprocessing and Loader Checks
 
-Inspection checks readable images and all 53 classes, removes exact byte
-duplicates, and excludes images with conflicting labels. It then splits each
-class into approximately 70% train, 15% validation, and 15% test with seed 42.
-Deduplication happens before splitting to prevent exact duplicates leaking
-across splits. These are new splits; the flattened archive has no original split labels.
-Image dimensions and color modes are reported; preprocessing should convert
-images to RGB and resize them to `IMAGE_SIZE`. Hash checks detect exact file
-duplicates only, not visually similar or re-encoded images.
+```bash
+python src/data/preprocess.py
+```
+
+### Data Preparation Pipeline
+
+- **Deduplication:** Automatically removes exact byte-level duplicates using SHA-256 and conflicting label files before splitting.
+- **Data Splitting:** Stratified split into **70% Train**, **15% Validation**, and **15% Test**, using a fixed random seed of `42`.
+- **Outputs:** Generates `clean_metadata.csv`, `train.csv`, `val.csv`, `test.csv`, `label_map.json`, and `dataset_cleaned.zip`.
+
+---
+
+## 🚀 Training Models
+
+The project compares three distinct model architectures. Run all commands from the project root.
+
+### 1. Simple CNN (Baseline)
+
+```bash
+python -m src.training.train_simple_cnn
+```
+
+- **Architecture:** Lightweight 3-block convolutional neural network.
+- **Purpose:** Serves as a fast baseline model for comparison.
+
+### 2. Complex CNN (ResNet-style from Scratch)
+
+```bash
+python -m src.training.train_complex_cnn
+```
+
+- **Architecture:** Deep residual network trained completely from scratch.
+- **Purpose:** Evaluates deep feature learning capabilities without pretrained weights.
+
+### 3. Transfer Learning (EfficientNet-B0)
+
+```bash
+python -m src.training.train_transfer
+```
+
+- **Architecture:** Pretrained EfficientNet-B0 with ImageNet weights, using a two-phase training strategy: classifier-head training with the backbone frozen, followed by differential fine-tuning.
+- **Purpose:** Leverages pretrained visual features to improve classification performance on the playing card dataset.
+
+---
+
+## 📈 Performance Summary
+
+| Model Architecture | Training Strategy | Test Accuracy | F1-Score (Macro) |
+| --- | --- | ---: | ---: |
+| **Simple CNN** | From Scratch | ~71.6% | 0.72 |
+| **Complex CNN** | From Scratch (ResNet Blocks) | ~86.2% | 0.86 |
+| **Transfer Learning** | EfficientNet-B0 (Fine-tuned) | **~91.7%** | **0.92** |
+
+---
+
+## 📝 Notes
+
+- Ensure that the dataset paths and configuration files match your local project structure before running the scripts.
+- The reported metrics are included for model comparison and should be verified against the actual evaluation outputs.
+- Training results may vary depending on the environment, random seed, and hyperparameter settings.

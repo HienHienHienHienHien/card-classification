@@ -7,12 +7,10 @@ class ResidualBlock(nn.Module):
 
         self.conv1 = nn.Conv2d(in_channels, out_channels,
                                kernel_size=3, stride=stride, padding=1, bias=False)
-        
         self.bn1 = nn.BatchNorm2d(out_channels)
 
         self.conv2 = nn.Conv2d(out_channels, out_channels,
                                kernel_size=3, padding=1, bias=False)
-        
         self.bn2 = nn.BatchNorm2d(out_channels)
 
         if stride != 1 or in_channels != out_channels:
@@ -25,10 +23,8 @@ class ResidualBlock(nn.Module):
 
     def forward(self, x):
         identity = self.shortcut(x)
-
         out = self.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
-
         out = out + identity
         return self.relu(out)
 

@@ -17,11 +17,11 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "checkpoints"
 
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-EPOCHS_HEAD = 3
-EPOCHS_FINE = 50
+EPOCHS_HEAD = 5
+EPOCHS_FINE = 40
 HEAD_LR = 1e-3
 FINE_BACKBONE_LR = 1e-4
-FINE_HEAD_LR = 5e-4
+FINE_HEAD_LR = 3e-4
 EARLY_STOPPING_PATIENCE = 5
 
 
@@ -164,7 +164,6 @@ def main():
                 start_time = time.time()
 
                 train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device, freeze_bn)
-
                 val_loss, val_acc, _, _ = evaluate(model, val_loader, criterion, device)
 
                 if scheduler is not None:
@@ -206,30 +205,18 @@ def main():
 
         labels = list(range(Num_classes))
 
-        precision = precision_score(all_targets,
-                                    all_preds,
-                                    labels=labels,
-                                    average="macro",
-                                    zero_division=0)
-        recall = recall_score(all_targets,
-                              all_preds,
-                              labels=labels,
-                              average="macro",
-                              zero_division=0)
-        f1 = f1_score(all_targets,
-                      all_preds,
-                      labels=labels,
-                      average="macro",
-                      zero_division=0)
+        precision = precision_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
+        recall = recall_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
+        f1 = f1_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
 
         print("\n" + "-" * 50)
+        print(f"Best Val Accuracy: {best_val_acc:.4f}")
         print("Final Test Results")
         print(f"Loss      : {test_loss:.4f}")
         print(f"Accuracy  : {test_acc:.4f}")
         print(f"Precision : {precision:.4f}")
         print(f"Recall    : {recall:.4f}")
         print(f"F1-score  : {f1:.4f}")
-        print(f"Best Val Accuracy: {best_val_acc:.4f}")
 
     finally:
         for loader in loaders.values():

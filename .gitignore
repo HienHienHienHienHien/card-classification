@@ -6,3 +6,5 @@ data/preprocessing/preprocessing_config.json
 __pycache__/
 *.pyc
 
+# Python / PyTorch checkpoints
+outputs/checkpoints/*.pt

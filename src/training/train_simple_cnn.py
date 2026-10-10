@@ -17,7 +17,7 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "checkpoints"
 
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-EPOCHS = 100
+EPOCHS = 80
 LEARNING_RATE = 3e-4
 EARLY_STOPPING_PATIENCE = 5
 
@@ -144,7 +144,6 @@ def main():
             start_time = time.time()
 
             train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
-
             val_loss, val_acc, _, _ = evaluate(model, val_loader, criterion, device)
 
             scheduler.step(val_loss)
@@ -185,13 +184,13 @@ def main():
 
         labels = list(range(Num_classes))
 
-        precision = precision_score(all_targets, all_preds,labels=labels, average="macro", zero_division=0)
+        precision = precision_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
         recall = recall_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
         f1 = f1_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
 
         print("\n" + "-" * 50)
-        print("Final Test Results")
         print(f"Best Val Accuracy: {best_val_acc:.4f}")
+        print("Final Test Results")
         print(f"Loss      : {test_loss:.4f}")
         print(f"Accuracy  : {test_acc:.4f}")
         print(f"Precision : {precision:.4f}")
