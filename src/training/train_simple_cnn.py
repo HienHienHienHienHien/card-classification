@@ -19,7 +19,7 @@ BATCH_SIZE = 32
 IMAGE_SIZE = 224
 EPOCHS = 80
 LEARNING_RATE = 3e-4
-EARLY_STOPPING_PATIENCE = 5
+EARLY_STOPPING_PATIENCE = 6
 
 
 def evaluate(model, loader, criterion, device):
