@@ -6,7 +6,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from src.data.preprocess import build_loaders, Num_classes
 from src.models.transfer import build_transfer
@@ -142,7 +142,7 @@ def main():
 
     try:
         # Phase 1: freeze backbone, train head only
-        # Phase 2: unfreeze all, fine-tune with ReduceLROnPlateau + early stopping
+        # Phase 2: unfreeze all, fine-tune with CosineAnnealingLR + early stopping
         for phase in ("head", "fine"):
             if phase == "head":
                 model.freeze_backbone()
@@ -163,12 +163,10 @@ def main():
                     ],
                     weight_decay=1e-4
                 )
-                scheduler = ReduceLROnPlateau(
+                scheduler = CosineAnnealingLR(
                     optimizer,
-                    mode="min",
-                    factor=0.5,
-                    patience=3,
-                    min_lr=1e-6
+                    T_max=EPOCHS_FINE,
+                    eta_min=1e-6
                 )
                 num_epochs = EPOCHS_FINE
                 freeze_bn = False
@@ -186,7 +184,7 @@ def main():
                 )
 
                 if scheduler is not None:
-                    scheduler.step(val_loss)
+                    scheduler.step()
 
                 train_time = time.time() - start_time
 
