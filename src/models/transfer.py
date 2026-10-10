@@ -3,7 +3,8 @@ from torchvision import models
 
 
 class TransferCNN(nn.Module):
-    def __init__(self, num_classes=53, pretrained=True, dropout=0.4):
+    """EfficientNet-B0 pretrained model"""
+    def __init__(self, num_classes=53, pretrained=True, dropout=0.3):
         super().__init__()
 
         weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1 if pretrained else None
@@ -15,8 +16,7 @@ class TransferCNN(nn.Module):
         self.classifier = nn.Sequential(
             nn.Flatten(),
             nn.Dropout(dropout),
-            nn.Linear(1280, num_classes),
-        )
+            nn.Linear(1280, num_classes))
 
 
     def freeze_backbone(self):

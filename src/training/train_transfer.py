@@ -17,11 +17,11 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "checkpoints"
 
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-EPOCHS_HEAD = 5
-EPOCHS_FINE = 40
+EPOCHS_HEAD = 3
+EPOCHS_FINE = 50
 HEAD_LR = 1e-3
-FINE_BACKBONE_LR = 1e-5
-FINE_HEAD_LR = 1e-4
+FINE_BACKBONE_LR = 1e-4
+FINE_HEAD_LR = 5e-4
 EARLY_STOPPING_PATIENCE = 5
 
 
@@ -116,11 +116,9 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     checkpoint_path = OUTPUT_DIR / "transfer_cnn.pt"
 
-    loaders = build_loaders(
-        model_type="efficientnetb0",
-        batch_size=BATCH_SIZE,
-        image_size=IMAGE_SIZE
-    )
+    loaders = build_loaders(model_type="efficientnetb0",
+                            batch_size=BATCH_SIZE,
+                            image_size=IMAGE_SIZE)
 
     train_loader = loaders["train"]
     val_loader = loaders["val"]
@@ -133,12 +131,10 @@ def main():
     best_val_acc = float("-inf")
     patience_counter = 0
 
-    history = {
-        "train_loss": [],
-        "val_loss": [],
-        "train_acc": [],
-        "val_acc": []
-    }
+    history = {"train_loss": [],
+               "val_loss": [],
+               "train_acc": [],
+               "val_acc": []}
 
     try:
         # Phase 1: freeze backbone, train head only
@@ -146,20 +142,20 @@ def main():
         for phase in ("head", "fine"):
             if phase == "head":
                 model.freeze_backbone()
-                optimizer = AdamW(model.classifier.parameters(), lr=HEAD_LR, weight_decay=1e-4)
+                optimizer = AdamW(model.classifier.parameters(),
+                                  lr=HEAD_LR,weight_decay=1e-2)
                 scheduler = None
                 num_epochs = EPOCHS_HEAD
                 freeze_bn = True
             else:
                 model.unfreeze_backbone()
                 optimizer = AdamW(
-                    [
-                        {"params": model.features.parameters(), "lr": FINE_BACKBONE_LR},
-                        {"params": model.classifier.parameters(), "lr": FINE_HEAD_LR},
-                    ],
-                    weight_decay=1e-4
-                )
-                scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS_FINE, eta_min=1e-6)
+                    [{"params": model.features.parameters(), "lr": FINE_BACKBONE_LR},
+                     {"params": model.classifier.parameters(), "lr": FINE_HEAD_LR},],
+                    weight_decay=1e-4)
+                scheduler = CosineAnnealingLR(optimizer,
+                                              T_max=EPOCHS_FINE,
+                                              eta_min=1e-6)
                 num_epochs = EPOCHS_FINE
                 freeze_bn = False
                 patience_counter = 0
@@ -167,13 +163,9 @@ def main():
             for epoch in range(1, num_epochs + 1):
                 start_time = time.time()
 
-                train_loss, train_acc = train_epoch(
-                    model, train_loader, criterion, optimizer, device, freeze_bn
-                )
+                train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device, freeze_bn)
 
-                val_loss, val_acc, _, _ = evaluate(
-                    model, val_loader, criterion, device
-                )
+                val_loss, val_acc, _, _ = evaluate(model, val_loader, criterion, device)
 
                 if scheduler is not None:
                     scheduler.step()
@@ -210,18 +202,27 @@ def main():
 
         model.load_state_dict(torch.load(checkpoint_path, map_location=device))
 
-        test_loss, test_acc, all_targets, all_preds = evaluate(
-            model, test_loader, criterion, device
-        )
+        test_loss, test_acc, all_targets, all_preds = evaluate(model, test_loader, criterion, device)
 
         labels = list(range(Num_classes))
 
-        precision = precision_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
-        recall = recall_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
-        f1 = f1_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
+        precision = precision_score(all_targets,
+                                    all_preds,
+                                    labels=labels,
+                                    average="macro",
+                                    zero_division=0)
+        recall = recall_score(all_targets,
+                              all_preds,
+                              labels=labels,
+                              average="macro",
+                              zero_division=0)
+        f1 = f1_score(all_targets,
+                      all_preds,
+                      labels=labels,
+                      average="macro",
+                      zero_division=0)
 
         print("\n" + "-" * 50)
-        print(f"Best Val Accuracy: {best_val_acc:.4f}")
         print("Final Test Results")
         print(f"Loss      : {test_loss:.4f}")
         print(f"Accuracy  : {test_acc:.4f}")

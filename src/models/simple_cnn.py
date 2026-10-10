@@ -15,18 +15,15 @@ class SimpleCNN(nn.Module):
             nn.MaxPool2d(2),
 
             nn.Conv2d(64, 128, kernel_size=3, padding=1, padding_mode="replicate"),
-            nn.ReLU(inplace=True),
-        )
+            nn.ReLU(inplace=True))
 
         self.pool = nn.AdaptiveMaxPool2d((4, 4))
 
-        self.classifier = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(128 * 4 * 4, 64),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.3),
-            nn.Linear(64, num_classes),
-        )
+        self.classifier = nn.Sequential(nn.Flatten(),
+                                        nn.Linear(128 * 4 * 4, 64),
+                                        nn.ReLU(inplace=True),
+                                        nn.Dropout(0.3),
+                                        nn.Linear(64, num_classes))
 
     def forward(self, x):
         x = self.features(x)

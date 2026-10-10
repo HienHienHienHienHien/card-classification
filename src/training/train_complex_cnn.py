@@ -17,7 +17,7 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "checkpoints"
 
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-EPOCHS = 80
+EPOCHS = 100
 LEARNING_RATE = 3e-4
 EARLY_STOPPING_PATIENCE = 5
 
@@ -110,11 +110,9 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     checkpoint_path = OUTPUT_DIR / "complex_cnn.pt"
 
-    loaders = build_loaders(
-        model_type="scratch",
-        batch_size=BATCH_SIZE,
-        image_size=IMAGE_SIZE
-    )
+    loaders = build_loaders(model_type="scratch",
+                            batch_size=BATCH_SIZE,
+                            image_size=IMAGE_SIZE)
 
     train_loader = loaders["train"]
     val_loader = loaders["val"]
@@ -123,30 +121,31 @@ def main():
     model = build_complex_cnn(num_classes=Num_classes).to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
-    scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3, min_lr=1e-6)
+    optimizer = AdamW(model.parameters(),
+                      lr=LEARNING_RATE,
+                      weight_decay=1e-4)
+
+    scheduler = ReduceLROnPlateau(optimizer,
+                                  mode="min",
+                                  factor=0.5,
+                                  patience=3,
+                                  min_lr=1e-6)
 
     best_val_acc = float("-inf")
     patience_counter = 0
 
-    history = {
-        "train_loss": [],
-        "val_loss": [],
-        "train_acc": [],
-        "val_acc": []
-    }
+    history = {"train_loss": [],
+               "val_loss": [],
+               "train_acc": [],
+               "val_acc": []}
 
     try:
         for epoch in range(1, EPOCHS + 1):
             start_time = time.time()
 
-            train_loss, train_acc = train_epoch(
-                model, train_loader, criterion, optimizer, device
-            )
+            train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
 
-            val_loss, val_acc, _, _ = evaluate(
-                model, val_loader, criterion, device
-            )
+            val_loss, val_acc, _, _ = evaluate(model, val_loader, criterion, device)
 
             scheduler.step(val_loss)
 
@@ -182,19 +181,29 @@ def main():
 
         model.load_state_dict(torch.load(checkpoint_path, map_location=device))
 
-        test_loss, test_acc, all_targets, all_preds = evaluate(
-            model, test_loader, criterion, device
-        )
+        test_loss, test_acc, all_targets, all_preds = evaluate(model, test_loader, criterion, device)
 
         labels = list(range(Num_classes))
 
-        precision = precision_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
-        recall = recall_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
-        f1 = f1_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
+        precision = precision_score(all_targets,
+                                    all_preds,
+                                    labels=labels,
+                                    average="macro",
+                                    zero_division=0)
+        recall = recall_score(all_targets,
+                              all_preds,
+                              labels=labels,
+                              average="macro",
+                              zero_division=0)
+        f1 = f1_score(all_targets,
+                      all_preds,
+                      labels=labels,
+                      average="macro",
+                      zero_division=0)
 
         print("\n" + "-" * 50)
-        print(f"Best Val Accuracy: {best_val_acc:.4f}")
         print("Final Test Results")
+        print(f"Best Val Accuracy: {best_val_acc:.4f}")
         print(f"Loss      : {test_loss:.4f}")
         print(f"Accuracy  : {test_acc:.4f}")
         print(f"Precision : {precision:.4f}")

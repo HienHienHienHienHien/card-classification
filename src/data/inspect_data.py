@@ -10,6 +10,7 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 
 Root = Path(__file__).resolve().parents[2]
+
 Raw_archive = Root / "data" / "raw" / "dataset.zip"
 Cleaned_archive = Root / "data" / "raw" / "dataset_cleaned.zip"
 Metadata_dir = Root / "data" / "metadata"
@@ -24,6 +25,7 @@ Val_ratio = 0.15
 Test_ratio = 0.15
 
 Metadata_columns = ["member", "class_name", "class_id", "split"]
+
 Metadata_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -82,7 +84,9 @@ def inspect_dataset():
 
     metadata = pd.DataFrame(records)
 
+    print("\n" + "=" * 60)
     print("CARD DATASET INSPECTION")
+    print("=" * 60)
     print(f"Valid images      : {len(metadata):,}")
     print(f"Skipped files     : {len(skipped):,}")
     for member, reason in skipped[:10]:
@@ -92,6 +96,7 @@ def inspect_dataset():
         print(f"Image dimensions  : {metadata[['width', 'height']].value_counts().to_dict()}")
         print(f"Channels          : {metadata['channels'].value_counts().sort_index().to_dict()}")
         print(f"Number of classes : {metadata['class_name'].nunique():,}")
+
         print("\nImages per class:")
         print(metadata["class_name"].value_counts().sort_index().to_string())
 
@@ -119,12 +124,12 @@ def remove_near_duplicates(metadata):
         current_hashes = hashes[start:start + 32]
         distances = np.count_nonzero(
             current_hashes[:, None, :] != hashes[None, :, :],
-            axis=2
-        )
+            axis=2 )
 
         for row, column in np.argwhere(distances <= Near_duplicate_threshold):
             first = start + int(row)
             second = int(column)
+
             if second > first:
                 union(first, second)
 
@@ -162,9 +167,7 @@ def clean_metadata(metadata):
     clean = clean.drop_duplicates("sha256").copy()
     duplicates_removed = before - len(conflicts) - len(clean)
 
-    near_duplicate_indexes, near_duplicate_groups = remove_near_duplicates(
-        clean.reset_index(drop=True)
-    )
+    near_duplicate_indexes, near_duplicate_groups = remove_near_duplicates(clean.reset_index(drop=True))
     clean = clean.reset_index(drop=True)
     clean = clean.drop(index=near_duplicate_indexes).copy()
 
@@ -175,8 +178,9 @@ def clean_metadata(metadata):
     with open(Metadata_dir / "label_map.json", "w", encoding="utf-8") as file:
         json.dump(class_to_id, file, ensure_ascii=False, indent=2)
 
-    print("\n")
+    print("\n" + "=" * 60)
     print("DATA CLEANING")
+    print("=" * 60)
     print(f"Before cleaning   : {before:,}")
     print(f"After cleaning    : {len(clean):,}")
     print(f"Duplicate removed : {duplicates_removed:,}")
@@ -198,18 +202,19 @@ def create_cleaned_archive(metadata, clean_metadata_frame):
 
     Cleaned_archive.parent.mkdir(parents=True, exist_ok=True)
 
-    with zipfile.ZipFile(Raw_archive, "r") as source, zipfile.ZipFile(
-        Cleaned_archive, "w", zipfile.ZIP_DEFLATED  
-    ) as target:
+    with zipfile.ZipFile(Raw_archive, "r") as source, zipfile.ZipFile(Cleaned_archive, "w", zipfile.ZIP_DEFLATED ) as target:
         for info in source.infolist():
             member = info.filename
+
             if member in image_members and member not in keep_members:
                 removed_images += 1
                 continue
+
             target.writestr(info, source.read(member))
 
-    print("\n")
+    print("\n" + "=" * 60)
     print("CLEANED ARCHIVE")
+    print("=" * 60)
     print(f"Images removed   : {removed_images:,}")
     print(f"Cleaned archive  : {Cleaned_archive}")
 
@@ -220,26 +225,22 @@ def create_splits(metadata):
     if metadata["class_id"].value_counts().min() < 7:
         raise ValueError("Every class needs at least 7 images to split 70/15/15.")
 
-    train, temp = train_test_split(
-        metadata,
-        test_size=Val_ratio + Test_ratio,
-        random_state=Random_state_fixed,
-        stratify=metadata["class_id"],
-    )
-    val, test = train_test_split(
-        temp,
-        test_size=Test_ratio / (Val_ratio + Test_ratio),
-        random_state=Random_state_fixed,
-        stratify=temp["class_id"],
-    )
-    splits = {
-        "train": train.assign(split="train"),
-        "val": val.assign(split="val"),
-        "test": test.assign(split="test"),
-    }
+    train, temp = train_test_split(metadata,
+                                   test_size=Val_ratio + Test_ratio,
+                                   random_state=Random_state_fixed,
+                                   stratify=metadata["class_id"])
+    val, test = train_test_split(temp,
+                                 test_size=Test_ratio / (Val_ratio + Test_ratio),
+                                 random_state=Random_state_fixed,
+                                 stratify=temp["class_id"])
 
-    print("\n")
+    splits = {"train": train.assign(split="train"),
+              "val": val.assign(split="val"),
+              "test": test.assign(split="test")}
+
+    print("\n" + "=" * 60)
     print("DATA SPLIT")
+    print("=" * 60)
     for name, data in splits.items():
         data = data[Metadata_columns].sort_values(["class_id", "member"])
         data.to_csv(Metadata_dir / f"{name}.csv", index=False)
@@ -249,13 +250,14 @@ def create_splits(metadata):
     combined = combined.sort_values(["class_id", "member"])
     combined.to_csv(Metadata_dir / "clean_metadata.csv", index=False)
 
-    print("Images per class by split:")
+    print("\nImages per class by split:")
     print(pd.crosstab(combined["class_name"], combined["split"])[["train", "val", "test"]].to_string())
 
 
 def main():
-    print("\n")
+    print("=" * 60)
     print("CARD CLASSIFICATION DATA PREPARATION")
+    print("=" * 60)
     print(f"Dataset path: {Raw_archive}")
     print(f"Target size : {Image_size}")
 
@@ -268,7 +270,6 @@ def main():
     create_splits(clean)
     print(f"\nSaved metadata to: {Metadata_dir}")
     print(f"Use this archive for training: {Cleaned_archive}")
-
 
 if __name__ == "__main__":
     main()
