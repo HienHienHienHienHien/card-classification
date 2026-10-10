@@ -17,7 +17,7 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "checkpoints"
 
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-EPOCHS = 100
+EPOCHS = 80
 LEARNING_RATE = 3e-4
 EARLY_STOPPING_PATIENCE = 5
 
@@ -123,19 +123,8 @@ def main():
     model = build_simple_cnn(num_classes=Num_classes).to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = AdamW(
-        model.parameters(),
-        lr=LEARNING_RATE,
-        weight_decay=1e-4
-    )
-
-    scheduler = ReduceLROnPlateau(
-        optimizer,
-        mode="min",
-        factor=0.5,
-        patience=3,
-        min_lr=1e-6
-    )
+    optimizer = AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
+    scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=3, min_lr=1e-6)
 
     best_val_acc = float("-inf")
     patience_counter = 0
@@ -202,8 +191,8 @@ def main():
         f1 = f1_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
 
         print("\n" + "-" * 50)
-        print("Final Test Results")
         print(f"Best Val Accuracy: {best_val_acc:.4f}")
+        print("Final Test Results")
         print(f"Loss      : {test_loss:.4f}")
         print(f"Accuracy  : {test_acc:.4f}")
         print(f"Precision : {precision:.4f}")

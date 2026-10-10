@@ -10,9 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 import matplotlib.pyplot as plt
 
-
 Root = Path(__file__).resolve().parents[2]
-
 Cleaned_archive = Root / "data/raw/dataset_cleaned.zip"
 Metadata_dir = Root / "data/metadata"
 Output_dir = Root / "data/preprocessing"
@@ -30,7 +28,6 @@ Imagenet_std = (0.229, 0.224, 0.225)
 
 def load_splits(metadata_dir=Metadata_dir):
     metadata_dir = Path(metadata_dir)
-
     return {
         split: pd.read_csv(
             metadata_dir / f"{split}.csv",
@@ -48,10 +45,6 @@ def load_splits(metadata_dir=Metadata_dir):
 
 def create_zip_index(zip_path, members):
     zip_path = Path(zip_path)
-
-    if not zip_path.is_file():
-        raise FileNotFoundError(f"Card ZIP not found: {zip_path}")
-
     requested_members = {
         str(member).strip().replace("\\", "/")
         for member in members
@@ -61,7 +54,6 @@ def create_zip_index(zip_path, members):
         zip_members = set(archive.namelist())
 
     missing = requested_members - zip_members
-
     if missing:
         raise FileNotFoundError(
             f"ZIP is missing {len(missing)} images. Example: {sorted(missing)[:3]}"
@@ -75,7 +67,6 @@ def create_transform(model_type, training, image_size=Image_size):
         raise ValueError("model_type must be either scratch or efficientnetb0.")
 
     steps = [transforms.Resize((image_size, image_size))]
-
     if training:
         steps.extend([
             transforms.RandomRotation(degrees=10),
@@ -84,12 +75,9 @@ def create_transform(model_type, training, image_size=Image_size):
                 contrast=0.1
             )
         ])
-
     steps.append(transforms.ToTensor())
-
     if model_type == "efficientnetb0":
         steps.append(transforms.Normalize(Imagenet_mean, Imagenet_std))
-
     return transforms.Compose(steps)
 
 
@@ -147,7 +135,6 @@ def build_loaders(
     index = create_zip_index(zip_path, members)
 
     loaders = {}
-
     for name, data in splits.items():
         transform = create_transform(
             model_type=model_type,
@@ -191,7 +178,6 @@ def check_batches(loaders, model_type, image_size=Image_size):
         if model_type == "scratch":
             assert batch["image"].min() >= 0
             assert batch["image"].max() <= 1
-
         print(model_type, name, tuple(batch["image"].shape))
 
     for name in ["val", "test"]:
@@ -205,18 +191,11 @@ def check_batches(loaders, model_type, image_size=Image_size):
 
 def save_augmentation_preview(loader, model_type, output_path):
     dataset = loader.dataset
-
     figure, axes = plt.subplots(1, 4, figsize=(12, 3))
-
     for axis in axes:
         image = dataset[0]["image"].permute(1, 2, 0)
-
         if model_type == "efficientnetb0":
-            image = (
-                image * torch.tensor(Imagenet_std)
-                + torch.tensor(Imagenet_mean)
-            )
-
+            image = (image * torch.tensor(Imagenet_std) + torch.tensor(Imagenet_mean))
         axis.imshow(image.clamp(0, 1).numpy())
         axis.axis("off")
 
@@ -226,10 +205,7 @@ def save_augmentation_preview(loader, model_type, output_path):
 
 
 def save_config(Output_dir):
-    label_map = json.loads(
-        (Metadata_dir / "label_map.json").read_text(encoding="utf-8")
-    )
-
+    label_map = json.loads((Metadata_dir / "label_map.json").read_text(encoding="utf-8"))
     assert len(label_map) == Num_classes, (
         f"label_map has {len(label_map)} classes, expected {Num_classes}."
     )
@@ -261,12 +237,8 @@ def save_config(Output_dir):
             for name in Split_names
         }
     }
-
     path = Output_dir / "preprocessing_config.json"
-    path.write_text(
-        json.dumps(config, indent=2),
-        encoding="utf-8"
-    )
+    path.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
 
 def main():
@@ -275,10 +247,8 @@ def main():
 
     for model_type in ["scratch", "efficientnetb0"]:
         loaders = build_loaders(model_type=model_type)
-
         try:
             check_batches(loaders, model_type)
-
             save_augmentation_preview(
                 loaders["train"],
                 model_type,
@@ -287,8 +257,6 @@ def main():
         finally:
             for loader in loaders.values():
                 loader.dataset.close()
-
-    print("Preprocessing completed.")
     print("Output:", Output_dir)
 
 

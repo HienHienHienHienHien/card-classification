@@ -3,8 +3,7 @@ from torchvision import models
 
 
 class TransferCNN(nn.Module):
-    """EfficientNet-B0 pretrained trên ImageNet, thay head 1000 lớp -> num_classes."""
-    def __init__(self, num_classes=53, pretrained=True, dropout=0.3):
+    def __init__(self, num_classes=53, pretrained=True, dropout=0.4):
         super().__init__()
 
         weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1 if pretrained else None

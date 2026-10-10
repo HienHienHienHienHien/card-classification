@@ -18,10 +18,10 @@ OUTPUT_DIR = PROJECT_ROOT / "outputs" / "checkpoints"
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
 EPOCHS_HEAD = 5
-EPOCHS_FINE = 50
+EPOCHS_FINE = 40
 HEAD_LR = 1e-3
-FINE_BACKBONE_LR = 1e-4
-FINE_HEAD_LR = 5e-4
+FINE_BACKBONE_LR = 1e-5
+FINE_HEAD_LR = 1e-4
 EARLY_STOPPING_PATIENCE = 5
 
 
@@ -146,11 +146,7 @@ def main():
         for phase in ("head", "fine"):
             if phase == "head":
                 model.freeze_backbone()
-                optimizer = AdamW(
-                    model.classifier.parameters(),
-                    lr=HEAD_LR,
-                    weight_decay=1e-4
-                )
+                optimizer = AdamW(model.classifier.parameters(), lr=HEAD_LR, weight_decay=1e-4)
                 scheduler = None
                 num_epochs = EPOCHS_HEAD
                 freeze_bn = True
@@ -163,11 +159,7 @@ def main():
                     ],
                     weight_decay=1e-4
                 )
-                scheduler = CosineAnnealingLR(
-                    optimizer,
-                    T_max=EPOCHS_FINE,
-                    eta_min=1e-6
-                )
+                scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS_FINE, eta_min=1e-6)
                 num_epochs = EPOCHS_FINE
                 freeze_bn = False
                 patience_counter = 0
@@ -224,29 +216,12 @@ def main():
 
         labels = list(range(Num_classes))
 
-        precision = precision_score(
-            all_targets,
-            all_preds,
-            labels=labels,
-            average="macro",
-            zero_division=0
-        )
-        recall = recall_score(
-            all_targets,
-            all_preds,
-            labels=labels,
-            average="macro",
-            zero_division=0
-        )
-        f1 = f1_score(
-            all_targets,
-            all_preds,
-            labels=labels,
-            average="macro",
-            zero_division=0
-        )
+        precision = precision_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
+        recall = recall_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
+        f1 = f1_score(all_targets, all_preds, labels=labels, average="macro", zero_division=0)
 
         print("\n" + "-" * 50)
+        print(f"Best Val Accuracy: {best_val_acc:.4f}")
         print("Final Test Results")
         print(f"Loss      : {test_loss:.4f}")
         print(f"Accuracy  : {test_acc:.4f}")
